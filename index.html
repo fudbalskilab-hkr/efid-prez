@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>efid — Individual Development</title>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,700;0,800;1,800&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Outfit',system-ui,sans-serif;background:#F3F3F3;}
+input[type=range]{-webkit-appearance:none;height:4px;border-radius:2px;background:#E5E5E5;outline:none;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:currentColor;cursor:pointer;}
+button{font-family:'Outfit',sans-serif;}
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-thumb{background:#DDD;border-radius:3px;}
+.tabs-scroll{display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.tabs-scroll::-webkit-scrollbar{display:none;}
+.mem-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+function useW(){
+  const [w,setW]=useState(window.innerWidth);
+  useEffect(()=>{const h=()=>setW(window.innerWidth);window.addEventListener('resize',h);return()=>window.removeEventListener('resize',h);},[]);
+  return w;
+}
+
+const POSITIONS=["Golman","Lijevi bek","Desni bek","Stoper","Lijevo krilo","Desno krilo","Vezni","Napadač"];
+const MONTHS=["Januar","Februar","Mart","April","Maj","Jun","Jul","Avgust","Septembar","Oktobar","Novembar","Decembar"];
+const MONTHS_S=["Jan","Feb","Mar","Apr","Maj","Jun","Jul","Avg","Sep","Okt","Nov","Dec"];
+const DAYS_SR=["Pon","Uto","Sri","Čet","Pet","Sub","Ned"];
+const PILLARS=[{key:"T",label:"Tehnički",color:"#2563EB"},{key:"Ta",label:"Taktički",color:"#7C3AED"},{key:"F",label:"Fizički",color:"#16A34A"},{key:"P",label:"Psihološki",color:"#D97706"}];
+const SESSION_TYPES=["Individualni trening","TE/TA analiza","Fizički trening","Psihološka sesija","Procena","Slobodan termin"];
+const TAGS=["#first-touch","#tranzicija","#finishing","#dribling","#pozicioniranje","#presing","#set-pieces","#1v1","#pasovanje","#brzina"];
+const FEE=5000;
+const NOW=new Date(2026,4,8);
+const TODAY="2026-05-08";
+const TC={"Individualni trening":"#2563EB","TE/TA analiza":"#7C3AED","Fizički trening":"#16A34A","Psihološka sesija":"#D97706","Procena":"#DC2626","Slobodan termin":"#888"};
+
+const makeAtt=(seed,rate)=>{
+  let s=seed*1000;const r=()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};
+  const att={};
+  [[2026,1],[2026,2],[2026,3],[2026,4]].forEach(([y,m])=>{
+    const days=new Date(y,m,0).getDate();
+    for(let d=1;d<=days;d++){
+      const dow=new Date(y,m-1,d).getDay();if(dow===0||dow===6)continue;
+      if(r()>0.45)continue;
+      const ds=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;att[ds]=r()<rate;
+    }
+  });
+  return att;
+};
+const makeRatings=(base,seed)=>{
+  let s=seed*777;const r=()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};
+  const off=()=>Math.round((r()-0.4)*2);const ratings={};
+  [["2026-02"],["2026-03"],["2026-04"]].forEach(([k])=>{
+    ratings[k]={T:Math.min(10,Math.max(1,base.T+off())),Ta:Math.min(10,Math.max(1,base.Ta+off())),F:Math.min(10,Math.max(1,base.F+off())),P:Math.min(10,Math.max(1,base.P+off()))};
+  });
+  return ratings;
+};
+const makeMem=months=>{const m={};months.forEach(mo=>{m[`2026-${String(mo).padStart(2,'0')}`]="paid";});return m;};
+
+const PLAYERS=[
+  {id:1, name:"Marko Nikolić",    pos:"Vezni",       born:2008,club:"FK Vojvodina",    foot:"Desna", contact:"064 123 456",att:makeAtt(1,0.85),ratings:makeRatings({T:7,Ta:7,F:6,P:7},1),  mem:makeMem([1,2,3,4,5])},
+  {id:2, name:"Stefan Popović",   pos:"Napadač",     born:2009,club:"FK Partizan",     foot:"Lijeva",contact:"063 234 567",att:makeAtt(2,0.80),ratings:makeRatings({T:8,Ta:6,F:8,P:6},2),  mem:makeMem([1,2,3,4,5])},
+  {id:3, name:"Luka Đorđević",    pos:"Stoper",      born:2007,club:"FK Vojvodina",    foot:"Desna", contact:"061 345 678",att:makeAtt(3,0.90),ratings:makeRatings({T:6,Ta:8,F:7,P:8},3),  mem:makeMem([1,2,3,4,5])},
+  {id:4, name:"Nikola Jovanović", pos:"Golman",      born:2010,club:"FK Bačka",        foot:"Desna", contact:"060 456 789",att:makeAtt(4,0.75),ratings:{},                                  mem:makeMem([1,2,3,4,5])},
+  {id:5, name:"Aleksa Stanković", pos:"Desni bek",   born:2008,club:"FK Spartak",      foot:"Desna", contact:"064 567 890",att:makeAtt(5,0.70),ratings:makeRatings({T:6,Ta:6,F:7,P:6},5),  mem:makeMem([1,2,3,4,5])},
+  {id:6, name:"Milan Petrović",   pos:"Lijevo krilo",born:2009,club:"FK Sloboda",      foot:"Desna", contact:"063 678 901",att:makeAtt(6,0.65),ratings:{},                                  mem:makeMem([1,2,3,4])},
+  {id:7, name:"Uroš Milošević",   pos:"Napadač",     born:2007,club:"FK Borac",        foot:"Lijeva",contact:"061 789 012",att:makeAtt(7,0.80),ratings:makeRatings({T:7,Ta:5,F:9,P:5},7),  mem:makeMem([1,2,3,4])},
+  {id:8, name:"Bogdan Stojanović",pos:"Vezni",       born:2010,club:"FK Rad",          foot:"Desna", contact:"060 890 123",att:makeAtt(8,0.60),ratings:{},                                  mem:makeMem([1,2,3,4])},
+  {id:9, name:"Nemanja Živković", pos:"Stoper",      born:2008,club:"FK Vojvodina",    foot:"Desna", contact:"064 901 234",att:makeAtt(9,0.75),ratings:{},                                  mem:makeMem([1,2,3,4])},
+  {id:10,name:"Pavle Andrić",     pos:"Desno krilo", born:2009,club:"FK BSK",          foot:"Lijeva",contact:"063 012 345",att:makeAtt(10,0.55),ratings:{},                                 mem:makeMem([1,2,3,4])},
+  {id:11,name:"Vuk Đukić",        pos:"Lijevi bek",  born:2010,club:"FK Crv. zvezda",  foot:"Desna", contact:"061 123 457",att:makeAtt(11,0.70),ratings:{},                                 mem:makeMem([1,2,3])},
+  {id:12,name:"Dušan Marković",   pos:"Vezni",       born:2007,club:"FK Partizan",     foot:"Desna", contact:"060 234 568",att:makeAtt(12,0.85),ratings:makeRatings({T:8,Ta:8,F:7,P:7},12),mem:makeMem([1,2,3])},
+  {id:13,name:"Đorđe Filipović",  pos:"Napadač",     born:2008,club:"FK Vojvodina",    foot:"Desna", contact:"064 345 679",att:makeAtt(13,0.65),ratings:{},                                 mem:makeMem([1,2,3])},
+  {id:14,name:"Rastko Ilić",      pos:"Golman",      born:2009,club:"FK Radnički",     foot:"Lijeva",contact:"063 456 780",att:makeAtt(14,0.50),ratings:{},                                 mem:makeMem([1,2])},
+  {id:15,name:"Zdravko Milić",    pos:"Stoper",      born:2008,club:"FK Čukarički",    foot:"Desna", contact:"061 567 891",att:makeAtt(15,0.75),ratings:{},                                 mem:makeMem([1,2])},
+  {id:16,name:"Vojin Savić",      pos:"Desni bek",   born:2010,club:"FK OFK",          foot:"Desna", contact:"060 678 902",att:makeAtt(16,0.60),ratings:{},                                 mem:makeMem([1,2])},
+  {id:17,name:"Dragan Tadić",     pos:"Lijevo krilo",born:2007,club:"FK Vojvodina",    foot:"Lijeva",contact:"064 789 013",att:makeAtt(17,0.40),ratings:{},                                 mem:makeMem([1])},
+  {id:18,name:"Igor Knežević",    pos:"Vezni",       born:2009,club:"FK Napredak",     foot:"Desna", contact:"063 890 124",att:makeAtt(18,0.55),ratings:{},                                 mem:makeMem([1])},
+  {id:19,name:"Sava Obradović",   pos:"Napadač",     born:2010,club:"FK Metalac",      foot:"Desna", contact:"061 901 235",att:makeAtt(19,0.35),ratings:{},                                 mem:{}},
+  {id:20,name:"Lazar Vuković",    pos:"Stoper",      born:2008,club:"FK Radnik",       foot:"Desna", contact:"060 012 346",att:makeAtt(20,0.45),ratings:{},                                 mem:{}},
+].map(p=>({...p,notes:[],assessments:[]}));
+
+const INIT_SESSIONS={
+  "2026-05-06":[{id:101,pid:1,time:"16:00",type:"Individualni trening",note:""},{id:102,pid:3,time:"17:30",type:"TE/TA analiza",note:""}],
+  "2026-05-07":[{id:103,pid:2,time:"15:00",type:"Fizički trening",note:""},{id:104,pid:7,time:"17:00",type:"Individualni trening",note:""}],
+  "2026-05-08":[{id:105,pid:5,time:"16:00",type:"Individualni trening",note:""}],
+  "2026-05-09":[{id:106,pid:12,time:"14:00",type:"TE/TA analiza",note:""},{id:107,pid:4,time:"16:00",type:"Individualni trening",note:""},{id:108,pid:8,time:"17:30",type:"Individualni trening",note:""}],
+  "2026-05-12":[{id:109,pid:1,time:"16:00",type:"Individualni trening",note:""},{id:110,pid:3,time:"17:00",type:"Fizički trening",note:""}],
+  "2026-05-13":[{id:111,pid:2,time:"15:30",type:"Psihološka sesija",note:""},{id:112,pid:6,time:"17:00",type:"Individualni trening",note:""}],
+  "2026-05-14":[{id:113,pid:10,time:"16:00",type:"Individualni trening",note:""}],
+  "2026-05-15":[{id:114,pid:5,time:"14:00",type:"Procena",note:""},{id:115,pid:7,time:"16:00",type:"Individualni trening",note:""},{id:116,pid:9,time:"17:30",type:"TE/TA analiza",note:""}],
+  "2026-05-19":[{id:117,pid:12,time:"16:00",type:"Individualni trening",note:""},{id:118,pid:1,time:"17:30",type:"TE/TA analiza",note:""}],
+  "2026-04-28":[{id:201,pid:1,time:"16:00",type:"Individualni trening",note:""},{id:202,pid:2,time:"17:30",type:"Individualni trening",note:""}],
+  "2026-04-25":[{id:203,pid:3,time:"15:00",type:"TE/TA analiza",note:""}],
+};
+
+const SAMPLE_EX=[
+  {id:1,name:"Kontrola lopte u pokretu",tags:["#first-touch","#dribling"],desc:"Igrač prima loptu u punom sprintu i kontroliše je u zadanom smjeru.",int:4,zan:5},
+  {id:2,name:"Tranzicija 3v3",tags:["#tranzicija","#pozicioniranje"],desc:"Brza promjena faze igre — odbrana u napad u 3 sekunde.",int:5,zan:4},
+  {id:3,name:"Završnica u kaznenom prostoru",tags:["#finishing","#1v1"],desc:"Različite pozicije šuta iz zonskog unosa lopte.",int:3,zan:5},
+  {id:4,name:"Pasovanje u trouglovima",tags:["#pasovanje","#pozicioniranje"],desc:"Kombinatorna igra u malom prostoru, tempo i preciznost.",int:2,zan:3},
+  {id:5,name:"Pressing visok 4v4",tags:["#presing","#tranzicija"],desc:"Aktivni visoki presing u zoni prvog čovjeka.",int:5,zan:4},
+  {id:6,name:"Centaršut i završnica",tags:["#finishing","#set-pieces"],desc:"Centaršut iz različitih uglova, prijem i šut.",int:3,zan:5},
+];
+
+const ini=n=>(n||"?").split(" ").map(x=>x[0]).join("").slice(0,2).toUpperCase();
+const Lbl=({c})=><div style={{fontSize:10,fontWeight:700,color:"#888",letterSpacing:"1.5px",textTransform:"uppercase",marginBottom:6}}>{c}</div>;
+function Fld({label,value,onChange,type="text",ph=""}){return <div><Lbl c={label}/><input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={ph} style={{width:"100%",padding:"10px 12px",border:"1px solid #E2E2E2",borderRadius:7,fontFamily:"inherit",fontSize:14,outline:"none",boxSizing:"border-box",background:"white"}}/></div>;}
+function SelF({label,value,opts,onChange}){return <div><Lbl c={label}/><select value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",padding:"10px 12px",border:"1px solid #E2E2E2",borderRadius:7,fontFamily:"inherit",fontSize:14,outline:"none",background:"white",cursor:"pointer",boxSizing:"border-box"}}>{opts.map(o=><option key={o}>{o}</option>)}</select></div>;}
+function Btn({ch,onClick,v="dark",s={}}){
+  const vs={dark:{background:"#0A0A0A",color:"white"},light:{background:"white",color:"#0A0A0A",border:"1px solid #E2E2E2"},green:{background:"#16A34A",color:"white"},purple:{background:"#7C3AED",color:"white"},blue:{background:"#2563EB",color:"white"},red:{background:"#DC2626",color:"white"}};
+  return <button onClick={onClick} style={{border:"none",padding:"11px 20px",borderRadius:7,fontFamily:"inherit",fontWeight:700,fontSize:13,cursor:"pointer",...vs[v],...s}}>{ch}</button>;
+}
+
+// ── Sidebar (desktop/tablet)
+function Sidebar({active,setActive,pc}){
+  const items=[{id:"dash",l:"Dashboard"},{id:"players",l:"Igrači",b:pc},{id:"planer",l:"Planer"},{id:"vezbe",l:"Vežbe"},{id:"napredak",l:"Napredak"},{id:"clanarine",l:"Članarine"}];
+  return(
+    <nav style={{width:200,minWidth:200,background:"#0A0A0A",minHeight:"100vh",display:"flex",flexDirection:"column",flexShrink:0}}>
+      <div style={{padding:"22px 18px 18px",borderBottom:"1px solid #1E1E1E"}}>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:26,fontWeight:800,color:"white",fontStyle:"italic",letterSpacing:"-1px",lineHeight:1}}>efid</div>
+        <div style={{fontSize:8,color:"#444",letterSpacing:"2.5px",textTransform:"uppercase",marginTop:3}}>Individual Development</div>
+      </div>
+      <div style={{flex:1,padding:"10px 7px"}}>
+        {items.map(item=>{const on=active===item.id;return(
+          <button key={item.id} onClick={()=>setActive(item.id)} style={{width:"100%",textAlign:"left",padding:"10px 12px",borderRadius:8,border:"none",background:on?"white":"transparent",color:on?"#0A0A0A":"#666",fontFamily:"inherit",fontWeight:on?700:500,fontSize:13,cursor:"pointer",marginBottom:2,display:"flex",justifyContent:"space-between",alignItems:"center",transition:"all 0.15s"}}>
+            <span>{item.l}</span>
+            {item.b!==undefined&&<span style={{fontSize:9,background:on?"#0A0A0A":"#222",color:on?"white":"#555",padding:"2px 7px",borderRadius:20,fontWeight:700}}>{item.b}</span>}
+          </button>);
+        })}
+      </div>
+      <div style={{padding:"12px 18px",borderTop:"1px solid #111"}}>
+        <div style={{fontSize:9,color:"#333"}}>Football Lab · 2026</div>
+      </div>
+    </nav>
+  );
+}
+
+// ── Bottom Nav (mobile)
+function BottomNav({active,setActive}){
+  const items=[
+    {id:"dash",l:"Home",ic:"⊙"},
+    {id:"players",l:"Igrači",ic:"≡"},
+    {id:"planer",l:"Planer",ic:"▦"},
+    {id:"vezbe",l:"Vežbe",ic:"◈"},
+    {id:"napredak",l:"Napredak",ic:"△"},
+    {id:"clanarine",l:"Članarine",ic:"◎"},
+  ];
+  return(
+    <div style={{position:"fixed",bottom:0,left:0,right:0,height:58,background:"#0A0A0A",display:"flex",zIndex:50,borderTop:"1px solid #1E1E1E"}}>
+      {items.map(item=>{const on=active===item.id;return(
+        <button key={item.id} onClick={()=>setActive(item.id)} style={{flex:1,background:"none",border:"none",color:on?"white":"#555",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,cursor:"pointer",fontFamily:"inherit",transition:"color 0.15s"}}>
+          <span style={{fontSize:17,lineHeight:1}}>{item.ic}</span>
+          <span style={{fontSize:7,fontWeight:on?700:400,letterSpacing:"0.3px"}}>{item.l}</span>
+        </button>);
+      })}
+    </div>
+  );
+}
+
+// ── Dashboard
+function Dashboard({players,sessions,setNav,openPlayer,mob}){
+  const upcoming=[];
+  Object.entries(sessions).forEach(([ds,arr])=>{if(ds>=TODAY)arr.forEach(s=>{const p=players.find(x=>x.id===s.pid);if(p)upcoming.push({...s,ds,pname:p.name});});});
+  upcoming.sort((a,b)=>a.ds.localeCompare(b.ds)||a.time.localeCompare(b.time));
+  const CM=[1,2,3,4,5];let exp=players.length*CM.length*FEE,coll=0;
+  players.forEach(p=>CM.forEach(m=>{if((p.mem||{})["2026-"+String(m).padStart(2,"0")]==="paid")coll+=FEE;}));
+  const out=exp-coll;
+  const noR=players.filter(p=>!p.ratings["2026-04"]&&!p.ratings["2026-05"]);
+  const oweMay=players.filter(p=>(p.mem||{})["2026-05"]!=="paid");
+  const fmt=n=>n.toLocaleString("sr-RS")+" RSD";
+  const pad=mob?"16px":"34px 42px";
+  return(
+    <div style={{padding:pad}}>
+      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:mob?28:38,fontWeight:800,letterSpacing:"-1px",marginBottom:4}}>DASHBOARD</div>
+      <div style={{color:"#888",fontSize:12,marginBottom:mob?16:24}}>8. Maj 2026</div>
+      <div style={{display:"grid",gridTemplateColumns:mob?"repeat(2,1fr)":"repeat(4,1fr)",gap:mob?9:12,marginBottom:mob?12:16}}>
+        {[
+          [players.length,"Aktivnih igrača","#0A0A0A"],
+          [upcoming.length,"Predstojeći","#2563EB"],
+          [noR.length,"Bez ocjene","#D97706"],
+          [oweMay.length,"Duguju Maj","#DC2626"],
+        ].map(([n,l,c])=>(
+          <div key={l} style={{background:"white",border:"1px solid #E2E2E2",borderRadius:10,padding:mob?"12px 14px":"16px 20px",borderTop:"4px solid "+c}}>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:mob?28:36,fontWeight:800,color:c,lineHeight:1}}>{n}</div>
+            <div style={{fontSize:mob?10:11,color:"#888",marginTop:4}}>{l}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:mob?10:12,marginBottom:mob?10:12}}>
+        <div style={{background:"white",border:"1px solid #E2E2E2",borderRadius:12,padding:mob?16:22}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:800,letterSpacing:"1px",marginBottom:14}}>ČLANARINE — JAN–MAJ</div>
+          {[["Očekivano",fmt(exp),"#0A0A0A"],["Naplaćeno",fmt(coll),"#16A34A"],["Dug",fmt(out),"#DC2626"]].map(([l,v,c])=>(
+            <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid #F5F5F5"}}>
+              <span style={{fontSize:12,color:"#888"}}>{l}</span>
+              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:mob?14:16,fontWeight:800,color:c}}>{v}</span>
+            </div>
+          ))}
+          <div style={{marginTop:12,height:4,background:"#F0F0F0",borderRadius:2,overflow:"hidden"}}>
+            <div style={{width:`${(coll/exp*100).toFixed(0)}%`,height:"100%",background:"#16A34A"}}/>
+          </div>
+          <div style={{fontSize:10,color:"#888",marginTop:4}}>{(coll/exp*100).toFixed(0)}% naplaćeno</div>
+        </div>
+        <div style={{background:"white",border:"1px solid #E2E2E2",borderRadius:12,padding:mob?16:22}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:800,letterSpacing:"1px",marginBottom:14}}>PREDSTOJEĆI TRENINZI</div>
+          {upcoming.slice(0,5).map(s=>(
+            <div key={s.id} style={{display:"flex",alignItems:"center",gap:9,padding:"7px 0",borderBottom:"1px solid #F5F5F5"}}>
+              <div style={{width:3,height:30,background:TC[s.type]||"#888",borderRadius:2,flexShrink:0}}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:12,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.pname}</div>
+                <div style={{fontSize:10,color:"#888"}}>{s.ds.slice(8)}.{s.ds.slice(5,7)}. · {s.time}</div>
+              </div>
+            </div>
+          ))}
+          {upcoming.length===0&&<div style={{color:"#AAA",fontSize:12,fontStyle:"italic"}}>Nema predstojećih.</div>}
+          <button onClick={()=>setNav("planer")} style={{marginTop:10,fontSize:11,color:"#2563EB",fontWeight:700,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",padding:0}}>Otvori planer →</button>
+        </div>
+      </div>
+      {noR.length>0&&(
+        <div style={{background:"white",border:"1px solid #E2E2E2",borderRadius:12,padding:mob?14:20}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:800,letterSpacing:"1px",color:"#D97706",marginBottom:10}}>ČEKAJU OCJENU</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+            {noR.map(p=><button key={p.id} onClick={()=>openPlayer(p.id)} style={{background:"#FFFBEB",border:"1px solid #FCD34D",borderRadius:7,padding:"5px 10px",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit",color:"#92400E"}}>{p.name}</button>)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Players list
+function Players({players,onSel,onAdd,onDel,mob}){
+  const [add,setAdd]=useState(false);
+  const [d,setD]=useState({name:"",pos:"Vezni",born:2010,club:"",foot:"Desna",contact:"",notes:[],ratings:{},att:{},mem:{},assessments:[]});
+  const [q,setQ]=useState("");
+  const fl=players.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())||(p.club||"").toLowerCase().includes(q.toLowerCase()));
+  const doAdd=()=>{if(!d.name.trim())return;onAdd({...d,id:Date.now()});setD({name:"",pos:"Vezni",born:2010,club:"",foot:"Desna",contact:"",notes:[],ratings:{},att:{},mem:{},assessments:[]});setAdd(false);};
+  const pad=mob?"16px":"34px 42px";
+  return(
+    <div style={{padding:pad}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:mob?16:26}}>
+        <div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:mob?28:38,fontWeight:800,letterSpacing:"-1px",lineHeight:1}}>IGRAČI</div>
+          <div style={{color:"#888",fontSize:11,marginTop:4}}>{players.length} igrača</div>
+        </div>
+        <Btn ch={add?"×":"+ Dodaj"} onClick={()=>setAdd(!add)} v={add?"light":"dark"} s={{padding:"9px 14px",fontSize:12}}/>
+      </div>
+      {add&&(
+        <div style={{background:"white",border:"1px solid #E2E2E2",borderRadius:12,padding:mob?14:22,marginBottom:16}}>
+          <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:12,marginBottom:12}}>
+            <Fld label="Ime i prezime" value={d.name} onChange={v=>setD({...d,name:v})}/>
+            <SelF label="Pozicija" value={d.pos} opts={POSITIONS} onChange={v=>setD({...d,pos:v})}/>
+            <Fld label="Godište" value={d.born} type="number" onChange={v=>setD({...d,born:+v})}/>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:12,marginBottom:16}}>
+            <Fld label="Klub" value={d.club} onChange={v=>setD({...d,club:v})}/>
+            <SelF label="Dominantna noga" value={d.foot} opts={["Desna","Lijeva","Obe"]} onChange={v=>setD({...d,foot:v})}/>
+            <Fld label="Kontakt roditelja" value={d.contact} onChange={v=>setD({...d,contact:v})}/>
+          </div>
+          <Btn ch="Dodaj igrača" onClick={doAdd}/>
+        </div>
+      )}
+      <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Pretraži..." style={{width:"100%",padding:"10px 14px",border:"1px solid #E2E2E2",borderRadius:8,fontFamily:"inherit",fontSize:13,marginBottom:14,background:"white",boxSizing:"border-box",outline:"none"}}/>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"repeat(auto-fill,minmax(260px,1fr))",gap:mob?9:11}}>
+        {fl.map(p=>{
+          const keys=Object.keys(p.ratings).sort();const lr=keys.length?p.ratings[keys[keys.length-1]]:null;
+          return(
+            <div key={p.id} onClick={()=>onSel(p.id)} style={{background:"white",border:"1px solid #E2E2E2",borderRadius:11,padding:mob?14:18,cursor:"pointer",position:"relative",transition:"border-color 0.15s"}}
+              onMouseEnter={e=>e.currentTarget.style.borderColor="#0A0A0A"}
+              onMouseLeave={e=>e.currentTarget.style.borderColor="#E2E2E2"}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:lr?10:0}}>
+                <div style={{width:36,height:36,borderRadius:"50%",background:"#0A0A0A",color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:12,flexShrink:0}}>{ini(p.name)}</div>
+                <div>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:700}}>{p.name}</div>
+                  <div style={{color:"#888",fontSize:10,marginTop:1}}>{p.pos} · {p.club||"—"} · {2026-p.born} god.</div>
+                </div>
+              </div>
+              {lr&&<div style={{display:"flex",gap:5}}>
+                {PILLARS.map(pi=><div key={pi.key} style={{flex:1,textAlign:"center",padding:"3px 2px",background:"#FAFAFA",borderRadius:5}}>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:800,color:pi.color}}>{lr[pi.key]}</div>
+                  <div style={{fontSize:8,color:"#AAA"}}>{pi.label.slice(0,3).toUpperCase()}</div>
+                </div>)}
+              </div>}
+              {!lr&&<div style={{fontSize:10,color:"#CCC",fontStyle:"italic",marginTop:4}}>Bez ocjena</div>}
+              <button onClick={e=>{e.stopPropagation();if(window.confirm("Obriši "+p.name+"?"))onDel(p.id);}} style={{position:"absolute",top:10,right:10,background:"none",border:"none",color:"#CCC",cursor:"pointer",fontSize:17,padding:3}}>×</button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Player Detail
+function PlayerDetail({p,setP,onBack,mob}){
+  const [tab,setTab]=useState("profil");
+  const PT=[{id:"profil",l:"Profil",c:"#0A0A0A"},{id:"dolasci",l:"Dolasci",c:"#2563EB"},{id:"napredak",l:"Napredak",c:"#16A34A"},{id:"napomene",l:"Napomene",c:"#555"},{id:"procena",l:"Procena",c:"#7C3AED"},{id:"clanarine",l:"Članarine",c:"#D97706"}];
+  const hp=mob?"12px 16px 0":"18px 42px 0";const cp=mob?"14px 16px":"26px 42px";
+  return(
+    <div style={{display:"flex",flexDirection:"column",minHeight:"100vh"}}>
+      <div style={{background:"white",borderBottom:"1px solid #EBEBEB",padding:hp}}>
+        <button onClick={onBack} style={{background:"none",border:"none",color:"#888",fontFamily:"inherit",fontSize:10,cursor:"pointer",padding:0,marginBottom:12,fontWeight:700,letterSpacing:"1px",textTransform:"uppercase"}}>← Nazad</button>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:mob?12:16}}>
+          <div style={{width:42,height:42,borderRadius:"50%",background:"#0A0A0A",color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,flexShrink:0}}>{ini(p.name)}</div>
+          <div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:mob?20:26,fontWeight:800,letterSpacing:"-0.5px",lineHeight:1}}>{p.name}</div>
+            <div style={{color:"#888",fontSize:11,marginTop:3}}>{p.pos} · {p.club||"—"} · {2026-p.born} god.</div>
+          </div>
+        </div>
+        <div className="tabs-scroll">
+          {PT.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"8px 14px",border:"none",background:"none",cursor:"pointer",fontFamily:"inherit",fontWeight:tab===t.id?700:500,fontSize:12,color:tab===t.id?t.c:"#888",borderBottom:tab===t.id?"3px solid "+t.c:"3px solid transparent",whiteSpace:"nowrap",flexShrink:0,transition:"all 0.15s"}}>{t.l}</button>)}
+        </div>
+      </div>
+      <div style={{flex:1,padding:cp,overflow:"auto"}}>
+        {tab==="profil"   &&<ProfilT    p={p} setP={setP} mob={mob}/>}
+        {tab==="dolasci"  &&<DolasciT   p={p} setP={setP} mob={mob}/>}
+        {tab==="napredak" &&<NapredakT  p={p} setP={setP} mob={mob}/>}
+        {tab==="napomene" &&<NapomeneT  p={p} setP={setP}/>}
+        {tab==="procena"  &&<ProcenaT   p={p} setP={setP}/>}
+        {tab==="clanarine"&&<ClanT      p={p} setP={setP}/>}
+      </div>
+    </div>
+  );
+}
+
+function ProfilT({p,setP,mob}){
+  const [ed,setEd]=useState(false);const [d,setD]=useState(p);
+  const rows=[["Pozicija",p.pos],["Godište",p.born],["Starost",(2026-p.born)+" godina"],["Klub",p.club||"—"],["Dominantna noga",p.foot],["Kontakt",p.contact||"—"]];
+  if(ed)return(<div>
+    <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:12,marginBottom:12}}>
+      <Fld label="Ime i prezime" value={d.name} onChange={v=>setD({...d,name:v})}/>
+      <SelF label="Pozicija" value={d.pos} opts={POSITIONS} onChange={v=>setD({...d,pos:v})}/>
+      <Fld label="Godište" value={d.born} type="number" onChange={v=>setD({...d,born:+v})}/>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:12,marginBottom:18}}>
+      <Fld label="Klub" value={d.club} onChange={v=>setD({...d,club:v})}/>
+      <SelF label="Dominantna noga" value={d.foot} opts={["Desna","Lijeva","Obe"]} onChange={v=>setD({...d,foot:v})}/>
+      <Fld label="Kontakt roditelja" value={d.contact} onChange={v=>setD({...d,contact:v})}/>
+    </div>
+    <div style={{display:"flex",gap:10}}><Btn ch="Sačuvaj" onClick={()=>{setP(d);setEd(false);}}/><Btn ch="Odustani" onClick={()=>setEd(false)} v="light"/></div>
+  </div>);
+  return(<div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:800,letterSpacing:"1px",color:"#888"}}>PODACI IGRAČA</div>
+      <Btn ch="Uredi" onClick={()=>{setD(p);setEd(true);}} v="light" s={{padding:"7px 12px",fontSize:11}}/>
+    </div>
+    <div style={{background:"white",border:"1px solid #E2E2E2",borderRadius:12,overflow:"hidden"}}>
+      {rows.map(([label,value],i)=>(
+        <div key={label} style={{display:"flex",padding:"12px 18px",borderBottom:i<rows.length-1?"1px solid #F5F5F5":"none"}}>
+          <div style={{width:mob?120:160,fontSize:9,fontWeight:700,color:"#AAA",letterSpacing:"1.5px",textTransform:"uppercase",flexShrink:0}}>{label}</div>
+          <div style={{flex:1,fontSize:13,fontWeight:500}}>{value}</div>
+        </div>
+      ))}
+    </div>
+  </div>);
+}
+
+function DolasciT({p,setP,mob}){
+  const [vm,setVm]=useState(NOW.getMonth());const [vy,setVy]=useState(NOW.getFullYear());
+  const att=p.att||{};
+  const days=new Date(vy,vm+1,0).getDate();const fd=(new Date(vy,vm,1).getDay()+6)%7;
+  const mk=`${vy}-${String(vm+1).padStart(2,"0")}`;
+  const ma=Object.entries(att).filter(([k])=>k.startsWith(mk));
+  const pres=ma.filter(([,v])=>v===true).length;const abs=ma.filter(([,v])=>v===false).length;
+  const tog=ds=>{const cur=att[ds];const u={...att};if(cur===undefined)u[ds]=true;else if(cur===true)u[ds]=false;else delete u[ds];setP({...p,att:u});};
+  const NB={background:"white",border:"1px solid #E2E2E2",borderRadius:7,width:32,height:32,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"};
+  return(<div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+      <button onClick={()=>{if(vm===0){setVm(11);setVy(y=>y-1);}else setVm(m=>m-1);}} style={NB}>←</button>
+      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:17,fontWeight:800}}>{MONTHS[vm].toUpperCase()} {vy}</div>
+      <button onClick={()=>{if(vm===11){setVm(0);setVy(y=>y+1);}else setVm(m=>m+1);}} style={NB}>→</button>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:16}}>
+      {[["Bio/la",pres,"#2563EB"],["Nije bio/la",abs,"#DC2626"],["Nije uneto",days-pres-abs,"#888"]].map(([l,v,c])=>(
+        <div key={l} style={{background:"white",border:"1px solid #E2E2E2",borderRadius:9,padding:"10px 12px"}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:800,color:c}}>{v}</div>
+          <div style={{fontSize:9,color:"#888",marginTop:1}}>{l}</div>
+        </div>
+      ))}
+    </div>
+    <div style={{background:"white",border:"1px solid #E2E2E2",borderRadius:12,padding:12}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:5}}>
+        {DAYS_SR.map(d=><div key={d} style={{textAlign:"center",fontSize:8,fontWeight:700,color:"#AAA",padding:"2px 0"}}>{d}</div>)}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
+        {Array(fd).fill(null).map((_,i)=><div key={`e${i}`}/>)}
+        {Array(days).fill(null).map((_,i)=>{
+          const day=i+1;const ds=`${vy}-${String(vm+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+          const val=att[ds];const it=ds===TODAY;
+          return<button key={day} onClick={()=>tog(ds)} style={{aspectRatio:"1",borderRadius:5,border:it?"2px solid #0A0A0A":"1px solid #F0F0F0",background:val===true?"#2563EB":val===false?"#FEE2E2":"#FAFAFA",color:val===true?"white":val===false?"#DC2626":"#555",fontFamily:"inherit",fontWeight:it?700:400,fontSize:mob?10:11,cursor:"pointer"}}>{day}</button>;
+        })}
+      </div>
+      <div style={{display:"flex",gap:12,marginTop:10,fontSize:9,color:"#888"}}>
+        <span><span style={{display:"inline-block",width:8,height:8,borderRadius:2,background:"#2563EB",marginRight:4,verticalAlign:"middle"}}></span>Bio/la</span>
+        <span><span style={{display:"inline-block",width:8,height:8,borderRadius:2,background:"#FEE2E2",marginRight:4,verticalAlign:"middle"}}></span>Nije bio/la</span>
+      </div>
+    </div>
+  </div>);
+}
+
+function NapredakT({p,setP,mob}){
+  const ratings=p.ratings||{};
+  const [per,setPer]=useState("2026-05");const [nr,setNr]=useState({T:5,Ta:5,F:5,P:5});
+  const periods=Object.keys(ratings).sort().reverse();
+  const latest=periods[0]?ratings[periods[0]]:null;const prev=periods[1]?ratings[periods[1]]:null;
+  const trend=k=>latest&&prev?latest[k]-prev[k]:null;
+  const save=()=>setP({...p,ratings:{...ratings,[per]:nr}});
+  return(<div>
+    {latest&&(<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:9,marginBottom:18}}>
+      {PILLARS.map(pi=>{const t=trend(pi.key);return(
+        <div key={pi.key} style={{background:"white",border:"1px solid #E2E2E2",borderRadius:10,padding:"12px 14px",borderTop:"3px solid "+pi.color}}>
+          <div style={{fontSize:9,fontWeight:700,color:"#AAA",letterSpacing:"1.5px",marginBottom:6}}>{pi.label.toUpperCase()}</div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:36,fontWeight:800,color:pi.color,lineHeight:1}}>{latest[pi.key]}</div>
+          <div style={{fontSize:9,color:"#CCC",marginTop:1}}>/10</div>
+          {t!==null&&<div style={{marginTop:5,fontSize:10,fontWeight:700,color:t>0?"#16A34A":t<0?"#DC2626":"#888"}}>{t>0?"↑ +"+t:t<0?"↓ "+t:"→ 0"}</div>}
+          <div style={{height:3,background:"#F0F0F0",borderRadius:2,marginTop:7,overflow:"hidden"}}>
+            <div style={{width:`${(latest[pi.key]||0)/10*100}%`,height:"100%",background:pi.color}}/>
+          </div>
+        </div>
+      );})}
+    </div>)}
+    <div style={{background:"white",border:"1px solid #E2E2E2",borderRadius:12,padding:18,marginBottom:16}}>
+      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:800,letterSpacing:"1px",color:"#16A34A",marginBottom:14}}>NOVA OCJENA</div>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:16,marginBottom:14}}>
+        {PILLARS.map(pi=>(
+          <div key={pi.key}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+              <span style={{fontSize:11,fontWeight:700,color:"#555"}}>{pi.label}</span>
+              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:800,color:pi.color}}>{nr[pi.key]}</span>
+            </div>
+            <input type="range" min={1} max={10} value={nr[pi.key]} onChange={e=>setNr({...nr,[pi.key]:+e.target.value})} style={{width:"100%",accentColor:pi.color}}/>
+          </div>
+        ))}
+      </div>
+      <div style={{display:"flex",gap:9,alignItems:"center",flexWrap:"wrap"}}>
+        <input type="month" value={per} onChange={e=>setPer(e.target.value)} style={{padding:"8px 10px",border:"1px solid #E2E2E2",borderRadius:7,fontFamily:"inherit",fontSize:12,outline:"none"}}/>
+        <Btn ch="Sačuvaj" onClick={save} v="green" s={{padding:"9px 16px",fontSize:12}}/>
+      </div>
+    </div>
+    {periods.length===0&&<div style={{color:"#AAA",fontSize:12,fontStyle:"italic"}}>Nema unesenih ocjena.</div>}
+    {periods.map(per2=>{const r=ratings[per2];return(
+      <div key={per2} style={{background:"white",border:"1px solid #E2E2E2",borderRadius:11,padding:16,marginBottom:9}}>
+        <div style={{fontSize:10,fontWeight:700,color:"#AAA",letterSpacing:"1px",marginBottom:12}}>{per2}</div>
+        {PILLARS.map(pi=>(
+          <div key={pi.key} style={{display:"flex",alignItems:"center",gap:9,marginBottom:8}}>
+            <div style={{width:66,fontSize:9,fontWeight:700,color:"#888",textTransform:"uppercase"}}>{pi.label}</div>
+            <div style={{flex:1,height:5,background:"#F0F0F0",borderRadius:3,overflow:"hidden"}}>
+              <div style={{width:`${(r[pi.key]||0)/10*100}%`,height:"100%",background:pi.color}}/>
+            </div>
+            <div style={{width:18,textAlign:"right",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:800,color:pi.color}}>{r[pi.key]||"—"}</div>
+          </div>
+        ))}
+      </div>
+    );})}
+  </div>);
+}
+
+function NapomeneT({p,setP}){
+  const notes=p.notes||[];const [t,setT]=useState("");
+  const add=()=>{if(!t.trim())return;setP({...p,notes:[{id:Date.now(),date:TODAY,text:t},...notes]});setT("");};
+  return(<div>
+    <div style={{background:"white",border:"1px solid #E2E2E2",borderRadius:12,padding:14,marginBottom:16}}>
+      <textarea value={t} onChange={e=>setT(e.target.value)} rows={3} placeholder="Napomene sa treninga, zapažanja..." style={{width:"100%",border:"none",outline:"none",fontFamily:"inherit",fontSize:13,resize:"none",boxSizing:"border-box",lineHeight:1.6}}/>
+      <div style={{borderTop:"1px solid #F0F0F0",paddingTop:9,marginTop:7,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span style={{fontSize:10,color:"#AAA"}}>{TODAY}</span>
+        <Btn ch="Dodaj" onClick={add} s={{padding:"7px 14px",fontSize:11}}/>
+      </div>
+    </div>
+    {notes.length===0&&<div style={{color:"#AAA",fontSize:12,fontStyle:"italic"}}>Nema napomena.</div>}
+    {notes.map(n=>(
+      <div key={n.id} style={{background:"white",border:"1px solid #E2E2E2",borderRadius:11,padding:14,marginBottom:9}}>
+        <div style={{fontSize:9,fontWeight:700,color:"#AAA",marginBottom:8}}>{n.date}</div>
+        <div style={{fontSize:13,color:"#0A0A0A",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{n.text}</div>
+        <button onClick={()=>setP({...p,notes:notes.filter(x=>x.id!==n.id)})} style={{background:"none",border:"none",color:"#DDD",cursor:"pointer",fontSize:11,marginTop:7,fontFamily:"inherit",padding:0}}>Obriši</button>
+      </div>
+    ))}
+  </div>);
+}
+
+function ProcenaT({p,setP}){
+  const as=p.assessments||[];const [t,setT]=useState("");const [ov,setOv]=useState(7);
+  const add=()=>{if(!t.trim())return;setP({...p,assessments:[{id:Date.now(),date:TODAY,text:t,overall:ov},...as]});setT("");setOv(7);};
+  return(<div>
+    <div style={{background:"white",border:"1px solid #E2E2E2",borderRadius:12,padding:18,marginBottom:16}}>
+      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:800,letterSpacing:"1px",color:"#7C3AED",marginBottom:14}}>NOVA PROCJENA</div>
+      <textarea value={t} onChange={e=>setT(e.target.value)} rows={4} placeholder="Stručna procjena — karakter, pristup, potencijal..." style={{width:"100%",border:"1px solid #E2E2E2",borderRadius:8,padding:"10px",fontFamily:"inherit",fontSize:13,resize:"vertical",outline:"none",marginBottom:12,boxSizing:"border-box",lineHeight:1.6}}/>
+      <div style={{marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+          <span style={{fontSize:11,fontWeight:700,color:"#555"}}>Ukupna ocjena</span>
+          <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:20,fontWeight:800,color:"#7C3AED"}}>{ov}/10</span>
+        </div>
+        <input type="range" min={1} max={10} value={ov} onChange={e=>setOv(+e.target.value)} style={{width:"100%",accentColor:"#7C3AED"}}/>
+      </div>
+      <Btn ch="Sačuvaj procjenu" onClick={add} v="purple" s={{padding:"9px 16px",fontSize:12}}/>
+    </div>
+    {as.length===0&&<div style={{color:"#AAA",fontSize:12,fontStyle:"italic"}}>Nema procjena.</div>}
+    {as.map(a=>(
+      <div key={a.id} style={{background:"white",border:"1px solid #E2E2E2",borderRadius:11,padding:16,marginBottom:9}}>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+          <span style={{fontSize:9,fontWeight:700,color:"#AAA"}}>{a.date}</span>
+          <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:800,color:"#7C3AED"}}>{a.overall}/10</span>
+        </div>
+        <div style={{fontSize:13,color:"#0A0A0A",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{a.text}</div>
+      </div>
+    ))}
+  </div>);
+}
+
+function ClanT({p,setP}){
+  const m=p.mem||{};const yr=2026;
+  const tog=k=>{const cur=m[k];const u={...m};if(cur===undefined)u[k]="paid";else if(cur==="paid")u[k]="unpaid";else delete u[k];setP({...p,mem:u});};
+  const paid=Object.values(m).filter(v=>v==="paid").length;const unp=Object.values(m).filter(v=>v==="unpaid").length;
+  const cs=k=>{const v=m[k];if(v==="paid")return{background:"#F0FDF4",border:"2px solid #16A34A",color:"#16A34A"};if(v==="unpaid")return{background:"#FEF2F2",border:"2px solid #DC2626",color:"#DC2626"};return{background:"#FAFAFA",border:"1px solid #E2E2E2",color:"#CCC"};};
+  return(<div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:16}}>
+      {[["Plaćeno",paid,"#16A34A"],["Duguje",unp,"#DC2626"],["Nije uneto",12-paid-unp,"#888"]].map(([l,v,c])=>(
+        <div key={l} style={{background:"white",border:"1px solid #E2E2E2",borderRadius:9,padding:"10px 12px"}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:800,color:c}}>{v}</div>
+          <div style={{fontSize:9,color:"#888",marginTop:1}}>{l}</div>
+        </div>
+      ))}
+    </div>
+    <div style={{background:"white",border:"1px solid #E2E2E2",borderRadius:11,padding:16,marginBottom:11}}>
+      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:800,letterSpacing:"0.5px",marginBottom:12}}>{yr}. GODINA</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
+        {MONTHS_S.map((mon,i)=>{const k=`${yr}-${String(i+1).padStart(2,"0")}`;const s=cs(k);
+          return<button key={k} onClick={()=>tog(k)} style={{...s,padding:"9px 4px",borderRadius:7,cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:10,textAlign:"center",transition:"all 0.15s"}}>
+            <div>{mon}</div>
+            <div style={{fontSize:7,marginTop:2,opacity:0.7}}>{m[k]==="paid"?"✓":m[k]==="unpaid"?"×":"—"}</div>
+          </button>;
+        })}
+      </div>
+    </div>
+    <div style={{background:"#F0FDF4",border:"1px solid #86EFAC",borderRadius:9,padding:"12px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <span style={{fontSize:11,color:"#166534",fontWeight:600}}>Ukupno naplaćeno</span>
+      <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:17,fontWeight:800,color:"#16A34A"}}>{(paid*FEE).toLocaleString("sr-RS")} RSD</span>
+    </div>
+  </div>);
+}
+
+// ── Planer (Monthly Calendar)
+function Planer({players,sessions,setSessions,mob}){
+  const [vm,setVm]=useState(NOW.getMonth());const [vy,setVy]=useState(NOW.getFullYear());
+  const [sel,setSel]=useState(null);const [showM,setShowM]=useState(false);const [addS,setAddS]=useState(false);
+  const [dp,setDp]=useState("");const [dt,setDt]=useState("16:00");const [dty,setDty]=useState("Individualni trening");const [dn,setDn]=useState("");
+  const days=new Date(vy,vm+1,0).getDate();const fd=(new Date(vy,vm,1).getDay()+6)%7;
+  const addSession=()=>{
+    if(!dp||!sel)return;
+    const ns={id:Date.now(),pid:+dp,time:dt,type:dty,note:dn};
+    setSessions(prev=>({...prev,[sel]:[...(prev[sel]||[]),ns]}));
+    setAddS(false);setDp("");setDt("16:00");setDty("Individualni trening");setDn("");
+  };
+  const remS=(ds,id)=>setSessions(prev=>({...prev,[ds]:(prev[ds]||[]).filter(s=>s.id!==id)}));
+  const selSess=sel?(sessions[sel]||[]).sort((a,b)=>a.time.localeCompare(b.time)):[];
+  const NB={background:"white",border:"1px solid #E2E2E2",borderRadius:7,width:32,height:32,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"};
+  const pad=mob?"16px":"34px 42px";
+  const cellH=mob?70:90;
+  return(
+    <div style={{padding:pad}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:18}}>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:mob?26:38,fontWeight:800,letterSpacing:"-1px"}}>PLANER</div>
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          <button onClick={()=>{if(vm===0){setVm(11);setVy(y=>y-1);}else setVm(m=>m-1);}} style={NB}>←</button>
+          <button onClick={()=>{setVm(NOW.getMonth());setVy(NOW.getFullYear());}} style={{...NB,width:"auto",padding:"0 10px",fontSize:9,fontWeight:700}}>DANAS</button>
+          <button onClick={()=>{if(vm===11){setVm(0);setVy(y=>y+1);}else setVm(m=>m+1);}} style={NB}>→</button>
+        </div>
+      </div>
+      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:mob?16:18,fontWeight:800,marginBottom:14,letterSpacing:"-0.3px"}}>{MONTHS[vm].toUpperCase()} {vy}</div>
+      <div style={{background:"white",border:"1px solid #E2E2E2",borderRadius:12,overflow:"hidden"}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",background:"#0A0A0A"}}>
+          {DAYS_SR.map(d=><div key={d} style={{padding:mob?"6px 0":"8px 0",textAlign:"center",fontSize:mob?8:9,fontWeight:700,color:"white",letterSpacing:"1px"}}>{d.toUpperCase()}</div>)}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)"}}>
+          {Array(fd).fill(null).map((_,i)=><div key={`e${i}`} style={{borderRight:"1px solid #F5F5F5",borderBottom:"1px solid #F5F5F5",minHeight:cellH,background:"#FAFAFA"}}/>)}
+          {Array(days).fill(null).map((_,i)=>{
+            const day=i+1;const ds=`${vy}-${String(vm+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+            const daySess=(sessions[ds]||[]).sort((a,b)=>a.time.localeCompare(b.time));
+            const isT=ds===TODAY;const isSel=ds===sel;const isPast=ds<TODAY;
+            return(
+              <div key={day} onClick={()=>{setSel(ds);setShowM(true);setAddS(false);}}
+                style={{borderRight:"1px solid #F5F5F5",borderBottom:"1px solid #F5F5F5",minHeight:cellH,padding:mob?"4px 3px":"7px 5px",cursor:"pointer",background:isSel?"#EFF6FF":isT?"#FFFBF0":isPast?"#FAFAFA":"white",position:"relative"}}>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:mob?14:16,fontWeight:800,color:isT?"#D97706":isPast?"#CCC":"#0A0A0A",marginBottom:2}}>
+                  {day}
+                </div>
+                {daySess.slice(0,mob?1:3).map(s=>{const pl=players.find(x=>x.id===s.pid);const c=TC[s.type]||"#888";return(
+                  <div key={s.id} style={{background:c+"18",borderLeft:"2px solid "+c,borderRadius:"0 3px 3px 0",padding:"1px 3px",marginBottom:2}}>
+                    <div style={{fontSize:mob?7:8,fontWeight:700,color:c,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{mob?s.time:(s.time+" "+((pl?.name||"").split(" ")[0]||"?"))}</div>
+                  </div>
+                );})}
+                {daySess.length>(mob?1:3)&&<div style={{fontSize:7,color:"#888"}}>+{daySess.length-(mob?1:3)}</div>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      {/* Modal */}
+      {showM&&sel&&(
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.4)",display:"flex",alignItems:mob?"flex-end":"center",justifyContent:"center",zIndex:100}} onClick={e=>{if(e.target===e.currentTarget){setShowM(false);setAddS(false);}}}>
+          <div style={{background:"white",borderRadius:mob?"16px 16px 0 0":"16px",padding:24,width:mob?"100%":"440px",maxHeight:mob?"90vh":"80vh",overflow:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.2)"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:800}}>{sel.slice(8,10)}.{sel.slice(5,7)}.{sel.slice(0,4)}.</div>
+              <button onClick={()=>{setShowM(false);setAddS(false);}} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:"#888"}}>×</button>
+            </div>
+            {selSess.length===0&&!addS&&<div style={{color:"#AAA",fontSize:12,marginBottom:14,fontStyle:"italic"}}>Nema termina za ovaj dan.</div>}
+            {selSess.map(s=>{const pl=players.find(x=>x.id===s.pid);const c=TC[s.type]||"#888";return(
+              <div key={s.id} style={{display:"flex",alignItems:"center",gap:9,padding:"9px 10px",borderRadius:8,marginBottom:7,background:"#FAFAFA",border:"1px solid #F0F0F0"}}>
+                <div style={{width:3,height:34,background:c,borderRadius:2,flexShrink:0}}/>
+                <div style={{flex:1}}>
+                  <div style={{display:"flex",alignItems:"center",gap:7}}>
+                    <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:800}}>{s.time}</span>
+                    <span style={{fontSize:12,fontWeight:600}}>{pl?.name||"?"}</span>
+                  </div>
+                  <div style={{fontSize:10,color:c,fontWeight:600,marginTop:1}}>{s.type}</div>
+                </div>
+                <button onClick={()=>remS(sel,s.id)} style={{background:"none",border:"none",color:"#CCC",cursor:"pointer",fontSize:15,padding:3}}>×</button>
+              </div>
+            );})}
+            {addS?(
+              <div style={{background:"#F8F8F8",borderRadius:10,padding:16,marginTop:10}}>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:800,letterSpacing:"1px",marginBottom:12}}>NOVI TERMIN</div>
+                <div style={{marginBottom:10}}><Lbl c="Igrač"/>
+                  <select value={dp} onChange={e=>setDp(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"1px solid #E2E2E2",borderRadius:7,fontFamily:"inherit",fontSize:13,outline:"none"}}>
+                    <option value="">Odaberi igrača</option>
+                    {players.map(pl=><option key={pl.id} value={pl.id}>{pl.name}</option>)}
+                  </select>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9,marginBottom:10}}>
+                  <div><Lbl c="Vreme"/><input type="time" value={dt} onChange={e=>setDt(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"1px solid #E2E2E2",borderRadius:7,fontFamily:"inherit",fontSize:13,outline:"none",boxSizing:"border-box"}}/></div>
+                  <div><Lbl c="Tip"/><select value={dty} onChange={e=>setDty(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"1px solid #E2E2E2",borderRadius:7,fontFamily:"inherit",fontSize:13,outline:"none"}}>{SESSION_TYPES.map(t=><option key={t}>{t}</option>)}</select></div>
+                </div>
+                <div style={{marginBottom:12}}><Lbl c="Napomena"/><input value={dn} onChange={e=>setDn(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"1px solid #E2E2E2",borderRadius:7,fontFamily:"inherit",fontSize:13,outline:"none",boxSizing:"border-box"}}/></div>
+                <div style={{display:"flex",gap:7}}>
+                  <Btn ch="Dodaj" onClick={addSession} s={{flex:1,padding:"9px",fontSize:12}}/>
+                  <Btn ch="Odustani" onClick={()=>setAddS(false)} v="light" s={{flex:1,padding:"9px",fontSize:12}}/>
+                </div>
+              </div>
+            ):(
+              <button onClick={()=>setAddS(true)} style={{width:"100%",marginTop:10,padding:"11px",border:"2px dashed #E2E2E2",borderRadius:8,background:"none",fontFamily:"inherit",fontSize:12,color:"#888",cursor:"pointer",fontWeight:600}}>+ Dodaj termin</button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Vežbe
+function Vezbe({mob}){
+  const [ex,setEx]=useState(SAMPLE_EX);const [at,setAt]=useState([]);const [q,setQ]=useState("");const [add,setAdd]=useState(false);
+  const [d,setD]=useState({name:"",tags:[],desc:"",int:3,zan:3});
+  const toggleT=t=>setAt(a=>a.includes(t)?a.filter(x=>x!==t):[...a,t]);
+  const fl=ex.filter(e=>(!q||e.name.toLowerCase().includes(q.toLowerCase()))&&(at.length===0||at.every(t=>e.tags.includes(t))));
+  const pad=mob?"16px":"34px 42px";
+  return(
+    <div style={{padding:pad}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:mob?16:22}}>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:mob?28:38,fontWeight:800,letterSpacing:"-1px"}}>VEŽBE</div>
+        <Btn ch={add?"×":"+ Nova"} onClick={()=>setAdd(!add)} v={add?"light":"dark"} s={{padding:"9px 14px",fontSize:12}}/>
+      </div>
+      {add&&(
+        <div style={{background:"white",border:"1px solid #E2E2E2",borderRadius:12,padding:mob?14:20,marginBottom:14}}>
+          <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:12,marginBottom:11}}>
+            <Fld label="Naziv vežbe" value={d.name} onChange={v=>setD({...d,name:v})}/>
+            <div><Lbl c="Tagovi"/><div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:2}}>{TAGS.map(t=><button key={t} onClick={()=>setD(dd=>({...dd,tags:dd.tags.includes(t)?dd.tags.filter(x=>x!==t):[...dd.tags,t]}))} style={{padding:"3px 8px",borderRadius:20,border:"1px solid",background:d.tags.includes(t)?"#0A0A0A":"white",color:d.tags.includes(t)?"white":"#555",fontSize:10,fontFamily:"inherit",cursor:"pointer"}}>{t}</button>)}</div></div>
+          </div>
+          <div style={{marginBottom:11}}><Lbl c="Opis"/><textarea value={d.desc} onChange={e=>setD({...d,desc:e.target.value})} rows={2} style={{width:"100%",padding:"9px 10px",border:"1px solid #E2E2E2",borderRadius:7,fontFamily:"inherit",fontSize:13,resize:"none",outline:"none",boxSizing:"border-box"}}/></div>
+          <Btn ch="Dodaj vežbu" onClick={()=>{if(!d.name.trim())return;setEx(e=>[{...d,id:Date.now()},...e]);setD({name:"",tags:[],desc:"",int:3,zan:3});setAdd(false);}}/>
+        </div>
+      )}
+      <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Pretraži..." style={{width:"100%",padding:"9px 12px",border:"1px solid #E2E2E2",borderRadius:8,fontFamily:"inherit",fontSize:13,marginBottom:10,background:"white",boxSizing:"border-box",outline:"none"}}/>
+      <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:16}}>
+        {TAGS.map(t=><button key={t} onClick={()=>toggleT(t)} style={{padding:"4px 10px",borderRadius:20,border:"1px solid "+(at.includes(t)?"#0A0A0A":"#E2E2E2"),background:at.includes(t)?"#0A0A0A":"white",color:at.includes(t)?"white":"#555",fontSize:10,fontFamily:"inherit",cursor:"pointer",fontWeight:at.includes(t)?700:400}}>{t}</button>)}
+        {at.length>0&&<button onClick={()=>setAt([])} style={{padding:"4px 10px",borderRadius:20,border:"1px solid #DC2626",background:"white",color:"#DC2626",fontSize:10,fontFamily:"inherit",cursor:"pointer"}}>× Obriši</button>}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"repeat(auto-fill,minmax(280px,1fr))",gap:mob?9:11}}>
+        {fl.map(e=>(
+          <div key={e.id} style={{background:"white",border:"1px solid #E2E2E2",borderRadius:11,padding:mob?14:18}}>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:700,marginBottom:7}}>{e.name}</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:8}}>{e.tags.map(t=><span key={t} style={{padding:"2px 8px",borderRadius:20,background:"#F5F5F5",fontSize:9,color:"#666"}}>{t}</span>)}</div>
+            {e.desc&&<div style={{fontSize:12,color:"#666",lineHeight:1.6}}>{e.desc}</div>}
+            <div style={{display:"flex",gap:12,marginTop:10,paddingTop:10,borderTop:"1px solid #F0F0F0",fontSize:10,color:"#888"}}>
+              <span>Intenzitet <strong style={{color:"#DC2626"}}>{e.int}/5</strong></span>
+              <span>Zanimljivost <strong style={{color:"#16A34A"}}>{e.zan}/5</strong></span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Napredak (global)
+function Napredak({players,mob}){
+  const getL=p=>{const ks=Object.keys(p.ratings).sort();return ks.length?{per:ks[ks.length-1],r:p.ratings[ks[ks.length-1]],prev:ks.length>=2?p.ratings[ks[ks.length-2]]:null}:null;};
+  const withR=players.filter(p=>Object.keys(p.ratings).length>0);
+  const noR=players.filter(p=>Object.keys(p.ratings).length===0);
+  const pad=mob?"16px":"34px 42px";
+  return(
+    <div style={{padding:pad}}>
+      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:mob?28:38,fontWeight:800,letterSpacing:"-1px",marginBottom:4}}>NAPREDAK</div>
+      <div style={{color:"#888",fontSize:11,marginBottom:mob?16:22}}>{withR.length} sa ocjenama · {noR.length} bez</div>
+      {withR.map(p=>{
+        const l=getL(p);if(!l)return null;
+        const {r,prev,per}=l;const avg=Math.round((r.T+r.Ta+r.F+r.P)/4*10)/10;
+        return(
+          <div key={p.id} style={{background:"white",border:"1px solid #E2E2E2",borderRadius:11,padding:mob?14:20,marginBottom:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <div style={{width:36,height:36,borderRadius:"50%",background:"#0A0A0A",color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:11,flexShrink:0}}>{ini(p.name)}</div>
+                <div>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:mob?16:19,fontWeight:700}}>{p.name}</div>
+                  <div style={{color:"#888",fontSize:10,marginTop:2}}>{p.pos} · {p.club||"—"}</div>
+                </div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:mob?24:30,fontWeight:800,lineHeight:1}}>{avg}</div>
+                <div style={{fontSize:8,color:"#888",marginTop:1}}>{per}</div>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:mob?"repeat(2,1fr)":"repeat(4,1fr)",gap:mob?8:11}}>
+              {PILLARS.map(pi=>{
+                const val=r[pi.key]||0;const pv=prev?prev[pi.key]||0:null;const trend=pv!==null?val-pv:null;
+                return(
+                  <div key={pi.key}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,alignItems:"center"}}>
+                      <span style={{fontSize:8,fontWeight:700,color:"#888",textTransform:"uppercase",letterSpacing:"0.3px"}}>{pi.label}</span>
+                      <div style={{display:"flex",alignItems:"center",gap:3}}>
+                        {trend!==null&&<span style={{fontSize:8,fontWeight:700,color:trend>0?"#16A34A":trend<0?"#DC2626":"#888"}}>{trend>0?"+"+trend:trend<0?trend:""}</span>}
+                        <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:800,color:pi.color}}>{val}</span>
+                      </div>
+                    </div>
+                    <div style={{height:5,background:"#F0F0F0",borderRadius:3,overflow:"hidden"}}>
+                      <div style={{width:`${val/10*100}%`,height:"100%",background:pi.color}}/>
+                    </div>
+                    {pv!==null&&<div style={{height:2,marginTop:2,position:"relative"}}>
+                      <div style={{position:"absolute",left:0,width:`${pv/10*100}%`,height:2,background:pi.color+"44",borderRadius:1}}/>
+                    </div>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+      {noR.length>0&&(
+        <div style={{background:"white",border:"1px solid #E2E2E2",borderRadius:11,padding:mob?14:18,marginTop:6}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:800,letterSpacing:"1px",color:"#AAA",marginBottom:10}}>BEZ OCJENA</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+            {noR.map(p=><div key={p.id} style={{background:"#FAFAFA",border:"1px solid #E2E2E2",borderRadius:7,padding:"5px 10px",fontSize:11,color:"#888"}}>{p.name}</div>)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Članarine (global)
+function Clanarine({players,setPlayers,mob}){
+  const yr=2026;const CM=[1,2,3,4,5];
+  const tog=(pid,k)=>setPlayers(prev=>prev.map(p=>{if(p.id!==pid)return p;const m={...p.mem||{}};if(m[k]===undefined)m[k]="paid";else if(m[k]==="paid")m[k]="unpaid";else delete m[k];return{...p,mem:m};}));
+  let exp=players.length*CM.length*FEE,coll=0;
+  players.forEach(p=>CM.forEach(m=>{if((p.mem||{})["2026-"+String(m).padStart(2,"0")]==="paid")coll+=FEE;}));
+  const out=exp-coll;const fmt=n=>n.toLocaleString("sr-RS")+" RSD";
+  const pad=mob?"16px":"34px 42px";
+  return(
+    <div style={{padding:pad}}>
+      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:mob?28:38,fontWeight:800,letterSpacing:"-1px",marginBottom:18}}>ČLANARINE {yr}</div>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"repeat(3,1fr)",gap:mob?9:12,marginBottom:18}}>
+        {[["Očekivano (Jan–Maj)",fmt(exp),"#0A0A0A"],["Naplaćeno",fmt(coll),"#16A34A"],["Dug",fmt(out),"#DC2626"]].map(([l,v,c])=>(
+          <div key={l} style={{background:"white",border:"1px solid #E2E2E2",borderRadius:11,padding:mob?"12px 14px":"14px 18px",borderTop:"4px solid "+c}}>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:mob?18:22,fontWeight:800,color:c}}>{v}</div>
+            <div style={{fontSize:10,color:"#888",marginTop:3}}>{l}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{height:4,background:"#F0F0F0",borderRadius:2,marginBottom:6,overflow:"hidden"}}>
+        <div style={{width:`${(coll/exp*100).toFixed(0)}%`,height:"100%",background:"#16A34A"}}/>
+      </div>
+      <div style={{fontSize:10,color:"#888",marginBottom:16}}>{(coll/exp*100).toFixed(0)}% naplaćeno</div>
+      <div className="mem-scroll">
+        <div style={{background:"white",border:"1px solid #E2E2E2",borderRadius:12,overflow:"hidden",minWidth:mob?700:"auto"}}>
+          <div style={{display:"grid",gridTemplateColumns:"170px repeat(12,1fr)",background:"#0A0A0A",color:"white"}}>
+            <div style={{padding:"8px 14px",fontSize:8,fontWeight:700,letterSpacing:"2px"}}>IGRAČ</div>
+            {MONTHS_S.map((m,i)=><div key={m} style={{padding:"8px 2px",textAlign:"center",fontSize:8,fontWeight:700,background:CM.includes(i+1)?"#111":"#0A0A0A"}}>{m.toUpperCase()}</div>)}
+          </div>
+          {players.map((p,idx)=>{
+            const paidC=CM.filter(m=>(p.mem||{})["2026-"+String(m).padStart(2,"0")]==="paid").length;
+            return(
+              <div key={p.id} style={{display:"grid",gridTemplateColumns:"170px repeat(12,1fr)",borderBottom:idx<players.length-1?"1px solid #F5F5F5":"none"}}>
+                <div style={{padding:"8px 14px",display:"flex",alignItems:"center",gap:6}}>
+                  <div style={{width:20,height:20,borderRadius:"50%",background:"#0A0A0A",color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:7,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,flexShrink:0}}>{ini(p.name)}</div>
+                  <div style={{fontSize:11,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
+                  {paidC===CM.length&&<span style={{fontSize:8,background:"#F0FDF4",color:"#16A34A",padding:"1px 4px",borderRadius:20,fontWeight:700,flexShrink:0}}>✓</span>}
+                </div>
+                {MONTHS_S.map((m,i)=>{
+                  const k="2026-"+String(i+1).padStart(2,"0");
+                  const v=(p.mem||{})[k];const isCM=CM.includes(i+1);
+                  return<button key={k} onClick={()=>isCM&&tog(p.id,k)} style={{border:"none",cursor:isCM?"pointer":"default",padding:"6px 2px",textAlign:"center",fontSize:11,fontWeight:700,background:v==="paid"?isCM?"#F0FDF4":"#F9FFF9":v==="unpaid"?"#FEF2F2":"#FAFAFA",color:v==="paid"?"#16A34A":v==="unpaid"?"#DC2626":"#DDD",opacity:isCM?1:0.4}}>
+                    {v==="paid"?"✓":v==="unpaid"?"×":"—"}
+                  </button>;
+                })}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div style={{marginTop:10,display:"flex",gap:14,fontSize:10,color:"#888",flexWrap:"wrap"}}>
+        <span><strong style={{color:"#16A34A"}}>✓</strong> Plaćeno</span>
+        <span><strong style={{color:"#DC2626"}}>×</strong> Duguje</span>
+        <span style={{fontStyle:"italic"}}>Klikni za promjenu · Jan–Maj aktivan period</span>
+      </div>
+    </div>
+  );
+}
+
+// ── App
+function App(){
+  const w=useW();const mob=w<640;const tab=w>=640&&w<1024;
+  const [nav,setNav]=useState("dash");
+  const [players,setPlayers]=useState(PLAYERS);
+  const [sessions,setSessions]=useState(INIT_SESSIONS);
+  const [apid,setApid]=useState(null);
+  const setPlayer=u=>setPlayers(pl=>pl.map(p=>p.id===u.id?u:p));
+  const ap=players.find(p=>p.id===apid);
+  const doNav=n=>{setNav(n);setApid(null);};
+  return(
+    <div style={{display:"flex",minHeight:"100vh"}}>
+      {!mob&&<Sidebar active={nav} setActive={doNav} pc={players.length}/>}
+      <div style={{flex:1,overflow:"auto",background:"#F3F3F3",paddingBottom:mob?64:0}}>
+        {nav==="dash"    &&<Dashboard players={players} sessions={sessions} setNav={doNav} openPlayer={id=>{setApid(id);doNav("players");}} mob={mob}/>}
+        {nav==="players" &&!ap&&<Players players={players} onSel={id=>setApid(id)} onAdd={p=>setPlayers(pl=>[...pl,p])} onDel={id=>setPlayers(pl=>pl.filter(x=>x.id!==id))} mob={mob}/>}
+        {nav==="players" &&ap&&<PlayerDetail p={ap} setP={setPlayer} onBack={()=>setApid(null)} mob={mob}/>}
+        {nav==="planer"  &&<Planer players={players} sessions={sessions} setSessions={setSessions} mob={mob}/>}
+        {nav==="vezbe"   &&<Vezbe mob={mob}/>}
+        {nav==="napredak"&&<Napredak players={players} mob={mob}/>}
+        {nav==="clanarine"&&<Clanarine players={players} setPlayers={setPlayers} mob={mob}/>}
+      </div>
+      {mob&&<BottomNav active={nav} setActive={doNav}/>}
+    </div>
+  );
+}
+
+ReactDOM.render(<App/>, document.getElementById('root'));
+</script>
+</body>
+</html>
